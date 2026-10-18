@@ -1,0 +1,19 @@
+{
+  "name": "xchendev-tools",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test:frontend": "node --test tests/frontend.test.cjs",
+    "postinstall": "npm run icons",
+    "icons": "tauri icon ./public/app-icon.svg",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

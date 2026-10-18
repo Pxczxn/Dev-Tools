@@ -1,0 +1,32 @@
+# Windows 开发 + 跨平台构建，统一使用 LF
+* text=auto eol=lf
+
+# Windows 专属脚本
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 常见文本文件
+*.rs text
+*.ts text
+*.tsx text
+*.js text
+*.mjs text
+*.cjs text
+*.json text
+*.html text
+*.css text
+*.toml text
+*.yml text
+*.yaml text
+*.md text
+*.sh text eol=lf
+*.ps1 text eol=lf
+
+# 图片（SVG 保留 diff 能力）
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.svg text

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "settings": {
+    "log_retention_days": 7,
+    "extra_protected_process_names": [],
+    "detection_path_hints": {},
+    "theme": "dark",
+    "disabled_runtime_kinds": [],
+    "managed_service_kinds": ["mysql", "redis"],
+    "managed_service_name_hints": {}
+  },
+  "manual_overrides": {},
+  "launch_profiles": [],
+  "audit_events": [],
+  "recent_errors": []
+}

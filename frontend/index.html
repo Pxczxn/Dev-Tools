@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XchenDev-Tools</title>
+    <script>
+      try {
+        var theme = localStorage.getItem("xchendev-effective-theme");
+        theme = theme === "light" || theme === "dark" ? theme : "dark";
+        document.documentElement.setAttribute("data-theme", theme);
+        document.documentElement.style.colorScheme = theme;
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "dark");
+        document.documentElement.style.colorScheme = "dark";
+      }
+    </script>
+    <script type="module" crossorigin src="/assets/index-BuLY3L2r.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BOcdRZgS.css">
+    <link rel="stylesheet" href="/tools/panel.css" />
+    <script type="module" src="/tools/panel.js"></script>
+    <script type="module" src="/tools/launch.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <header id="xd-toolbar" aria-label="全局工具">
+      <span class="xd-toolbar-label">快捷工具</span>
+      <button id="xd-launch-open" type="button" hidden>启动方案</button>
+      <form id="xd-search" role="search" aria-label="搜索本机端口、路径和进程">
+        <span class="xd-search-icon" aria-hidden="true">⌕</span>
+        <input id="xd-searchinput" type="search" autocomplete="off" spellcheck="false"
+          aria-label="端口号、文件路径或进程名" aria-controls="xd-results" aria-expanded="false"
+          placeholder="搜索端口、路径或进程名" />
+        <kbd title="按 Ctrl+K 聚焦搜索">Ctrl K</kbd>
+        <button id="xd-searchgo" type="submit">查询</button>
+        <section id="xd-results" aria-label="搜索结果" hidden>
+          <div class="xd-panel-heading"><span>搜索结果</span><button type="button" id="xd-searchclose" aria-label="关闭搜索结果">关闭</button></div>
+          <div id="xd-resultlist" aria-live="polite"></div>
+        </section>
+      </form>
+      <div id="xd-errbox">
+        <button id="xd-errbadge" type="button" aria-controls="xd-errpanel" aria-expanded="false">
+          <span class="xd-error-dot" aria-hidden="true"></span>报错收集 <span id="xd-errcount">0</span>
+        </button>
+        <section id="xd-errpanel" aria-label="日志报错收集" hidden>
+          <div class="xd-panel-heading"><div><strong>日志报错收集</strong><p id="xd-errsummary">暂无报错</p></div>
+            <div class="xd-panel-actions"><button id="xd-errclear" type="button">清空</button><button id="xd-errclose" type="button" aria-label="关闭报错收集">关闭</button></div>
+          </div>
+          <div id="xd-errlist"></div>
+          <footer>仅收集本次打开后的日志 · 最多保留最近 60 类</footer>
+        </section>
+      </div>
+    </header>
+    <dialog id="xd-launch-dialog" aria-labelledby="xd-launch-title">
+      <div class="xd-panel-heading"><div><strong id="xd-launch-title">工作区启动方案</strong><p>按项目文件生成建议，保存后用于下次启动</p></div><button id="xd-launch-close" type="button">关闭</button></div>
+      <form id="xd-launch-form">
+        <label>服务<select id="xd-launch-service"></select></label>
+        <label>启动方式<select id="xd-launch-option"></select></label>
+        <p id="xd-launch-description" class="xd-muted"></p>
+        <label>工作目录<input id="xd-launch-cwd" required /></label>
+        <label>执行程序<input id="xd-launch-command" required placeholder="例如 mvn、npm 或完整路径" /></label>
+        <label>启动参数（JSON 数组）<textarea id="xd-launch-args" rows="3" spellcheck="false"></textarea></label>
+        <label>前置步骤（JSON 数组，按顺序执行，失败时不启动）<textarea id="xd-launch-prepare" rows="5" spellcheck="false"></textarea></label>
+        <details><summary>环境与 Shell</summary>
+          <label>环境文件（相对工作目录，可留空）<input id="xd-launch-envfile" /></label>
+          <label>环境变量（JSON 对象）<textarea id="xd-launch-env" rows="3" spellcheck="false"></textarea></label>
+          <label class="xd-check"><input id="xd-launch-shell" type="checkbox" />通过 Shell 执行主命令</label>
+        </details>
+        <p id="xd-launch-status" role="status"></p>
+        <div class="xd-launch-footer"><span class="xd-muted">保存不会自动执行命令</span><button id="xd-launch-save" type="submit">保存启动方案</button></div>
+      </form>
+    </dialog>
+  </body>
+</html>

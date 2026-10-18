@@ -1,0 +1,100 @@
+# ============================================================
+# 原则：只提交项目源码 + 正式插图；其余忽略
+#
+# 插图 vs 原型图：只按路径判断
+# 插图路径（提交）：public/images/、public/brand/、src/assets/、static/
+# 原型路径（忽略）：.prototype-review/、prototype-assets/、prototype-specs/
+# ============================================================
+
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+dist-ssr/
+*.local
+
+# Rust / Tauri：忽略所有层级的 Cargo 构建目录
+target/
+# 由 public/app-icon.svg 通过 `npm run icons` 生成
+src-tauri/icons/
+
+# 缓存与测试输出
+coverage/
+
+# 运行时与临时文件
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 本地环境与密钥
+.env
+.env.*
+!.env.example
+
+# 本地运行时配置（默认同目录 config/config.json）
+config/config.json
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# AI / Agent 产出
+.agents/
+.agent/
+.codex/
+.claude/
+.cursor/
+.reasonix/
+.workbuddy/
+rollout-*.jsonl
+.codex-*.png
+
+# 原型路径（忽略）
+.prototype-review/
+prototype/
+prototypes/
+prototype-specs/
+prototype-assets/
+mockup/
+wireframe/
+figma/
+design/
+
+# 开发资料
+docs/
+doc/
+*.md
+!/README.md
+
+# 操作系统
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# 本地程序、运行数据及配置备份（配置示例保留）
+/XchenDev-Tools.exe
+/data/
+*.bak
+.run/
+uploads/
+
+# 逆向恢复过程资料；应用使用 frontend/ 中的正式资源
+/recovered-v2/
+
+# 开发资料；frontend/tools/ 是被页面加载的产品源码，保留
+/qa/
+/tools/
+
+# 进程实验的本地运行报告
+/src-tauri/spike/win_job_spike/last_run.txt
