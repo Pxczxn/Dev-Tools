@@ -1,5 +1,5 @@
 {
-  "name": "xchendev-tools",
+  "name": "dev-tools",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -7,7 +7,8 @@
     "test:frontend": "node --test tests/frontend.test.cjs",
     "postinstall": "npm run icons",
     "icons": "tauri icon ./public/app-icon.svg",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "build:portable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-portable.ps1"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

@@ -1,6 +1,6 @@
-# XchenDev-Tools
+# Dev-Tools
 
-XchenDev-Tools 是一个面向 Windows 本地开发环境的桌面控制台，用来集中处理开发过程中常见的端口冲突、进程占用、基础服务、运行时环境与项目启动管理。
+Dev-Tools 是一个面向 Windows 本地开发环境的桌面控制台，用来集中处理开发过程中常见的端口冲突、进程占用、基础服务、运行时环境与项目启动管理。
 
 当前版本：`0.1.0`（发布候选）
 
@@ -17,7 +17,7 @@ XchenDev-Tools 是一个面向 Windows 本地开发环境的桌面控制台，�
 
 ## 安全与可靠性
 
-XchenDev-Tools 会直接与本机进程、端口和 Windows 服务交互，因此默认采用较严格的保护策略：
+Dev-Tools 会直接与本机进程、端口和 Windows 服务交互，因此默认采用较严格的保护策略：
 
 - 危险启动命令和 shell 链接/重定向会被拒绝。
 - 受保护系统进程不会被直接终止。
@@ -28,29 +28,13 @@ XchenDev-Tools 会直接与本机进程、端口和 Windows 服务交互，因�
 
 ## 配置位置
 
-开发态默认配置文件：
+默认配置位于程序旁边的 `data/config.json`。便携版的 WebView 数据与缓存位于 `data/webview/`，退出程序后可整体移动或备份程序目录。
 
-```text
-<仓库根目录>\config\config.json
-```
+可通过设置中的数据目录迁移功能或环境变量 `XCHEN_DATA_DIR` 指定配置目录。已有配置的数据结构和存储方式不受本次改名影响。
 
-安装版默认配置文件：
+日志采用滚动缓存：后台每服务最多保留设置的行数或约 8MiB（先达到者生效）；页面每服务最多保留 1000 行或约 2MiB 文本，全部服务合计约 8MiB，超出时淘汰旧缓存。切换服务可从后台重新读取近期记录，导出以后台仍保留的记录为准。超过 64KiB 的单行会显示截断提示；清空日志会释放缓存容量。
 
-```text
-%LOCALAPPDATA%\XchenDev\XchenDev-Tools\config\config.json
-```
-
-安装程序本身默认安装到：
-
-```text
-%LOCALAPPDATA%\XchenDev-Tools
-```
-
-程序目录与用户配置目录相互隔离；卸载应用不会删除用户配置。默认位置也可通过以下环境变量覆盖：
-
-- `XCHEN_CONFIG_FILE`
-- `XCHEN_CONFIG_DIR`
-- `XCHEN_TOOLS_HOME`
+路径占用在全局搜索和“路径占用”页使用 Windows Restart Manager 查询文件资源的关联进程，支持选择进程后终止。目录查询递归收集其中的文件，不跟随链接或 junction；最多收集 20,000 项待查文件/目录、累计 2,000,000 个路径字符，并限制文件遍历为 5 秒，触限及跳过项会在结果中提示。它不覆盖仅持有目录句柄或以该目录为工作目录的进程，因此未查到结果不代表目录一定可以删除。释放操作会重新查询占用，并通过同一进程句柄核对启动时间再终止；拒绝终止当前应用、系统关键进程和 Windows 服务。
 
 ## 技术栈
 
@@ -147,4 +131,4 @@ src-tauri\target\release\bundle\nsis\
 
 ---
 
-**XchenDev-Tools · By XchenDev**
+**Dev-Tools · By XchenDev**

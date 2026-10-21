@@ -8,6 +8,23 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
 
+// Line count alone does not bound memory for SQL/JSON output.
+const MAX_LOG_BYTES: usize = 8 * 1024 * 1024;
+const MAX_LOG_LINE_BYTES: usize = 64 * 1024;
+const TRUNCATED_LOG: &str = " …[单行超过 64KB，后续内容已截断]";
+
+#[derive(Default)]
+struct LogBuffer {
+    entries: VecDeque<LogEntry>,
+    bytes: usize,
+}
+
+impl LogEntry {
+    fn retained_bytes(&self) -> usize {
+        std::mem::size_of::<Self>() + self.timestamp.len() + self.stream.len() + self.text.len()
+    }
+}
+
 /// 启动参数聚合（避免长参数列表）。
 #[derive(Clone, Copy)]
 pub struct StartSpec<'a> {
@@ -54,7 +71,7 @@ pub struct Session {
     started_at: Mutex<Option<String>>,
     stopped_at: Mutex<Option<String>>,
     stopping: AtomicBool,
-    pub logs: Mutex<VecDeque<LogEntry>>,
+    logs: Mutex<LogBuffer>,
     cap: Mutex<usize>,
 }
 
@@ -70,7 +87,7 @@ impl Session {
             started_at: Mutex::new(None),
             stopped_at: Mutex::new(None),
             stopping: AtomicBool::new(false),
-            logs: Mutex::new(VecDeque::new()),
+            logs: Mutex::new(LogBuffer::default()),
             cap: Mutex::new(cap),
         }
     }
@@ -129,16 +146,24 @@ impl Session {
     }
 
     pub fn push_log(&self, stream: &str, text: &str) -> Option<LogEntry> {
+        let clean = plain_log_text(text);
+        // A standalone terminal reset must not create a visible empty log row.
+        if clean != text && clean.trim().is_empty() {
+            return None;
+        }
         let mut logs = self.logs.lock().unwrap();
         let entry = LogEntry {
             timestamp: crate::store::now_iso(),
             stream: stream.to_string(),
-            text: text.to_string(),
+            text: clean.into_owned(),
         };
-        logs.push_back(entry.clone());
+        logs.bytes += entry.retained_bytes();
+        logs.entries.push_back(entry.clone());
         let cap = *self.cap.lock().unwrap();
-        while logs.len() > cap {
-            logs.pop_front();
+        while logs.entries.len() > cap || logs.bytes > MAX_LOG_BYTES {
+            if let Some(old) = logs.entries.pop_front() {
+                logs.bytes -= old.retained_bytes();
+            }
         }
         Some(entry)
     }
@@ -146,16 +171,33 @@ impl Session {
     pub fn history(&self, limit: Option<u32>) -> Vec<LogEntry> {
         let logs = self.logs.lock().unwrap();
         match limit {
-            Some(n) if (n as usize) < logs.len() => {
-                logs.iter().skip(logs.len() - n as usize).cloned().collect()
-            }
-            _ => logs.iter().cloned().collect(),
+            Some(n) if (n as usize) < logs.entries.len() => logs
+                .entries
+                .iter()
+                .skip(logs.entries.len() - n as usize)
+                .cloned()
+                .collect(),
+            _ => logs.entries.iter().cloned().collect(),
         }
     }
 
     pub fn clear_logs(&self) {
-        self.logs.lock().unwrap().clear();
+        *self.logs.lock().unwrap() = LogBuffer::default();
     }
+}
+
+/// The log viewer and exports are plain text, not terminal emulators.
+fn plain_log_text(text: &str) -> std::borrow::Cow<'_, str> {
+    if !text.contains('\u{1b}') {
+        return std::borrow::Cow::Borrowed(text);
+    }
+    static TERMINAL_SEQUENCES: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    TERMINAL_SEQUENCES
+        .get_or_init(|| {
+            regex::Regex::new(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-?]*[ -/]*[@-~]")
+                .expect("valid ANSI sequence pattern")
+        })
+        .replace_all(text, "")
 }
 
 #[derive(Default)]
@@ -589,16 +631,45 @@ fn read_log_batches(
 
     // 独立读取线程可能阻塞在管道上；接收端负责定时刷新未满的批次。
     // 有界队列限制大量输出时的额外内存占用。
-    let (sender, receiver) = mpsc::sync_channel(256);
+    let (sender, receiver) = mpsc::sync_channel(32);
     std::thread::spawn(move || {
-        for line in BufReader::new(stream).lines() {
-            match line {
-                Ok(text) => {
-                    if sender.send(text).is_err() {
-                        break;
+        let mut reader = BufReader::new(stream);
+        let mut line = Vec::new();
+        let mut truncated = false;
+        while let Ok(bytes) = reader.fill_buf() {
+            let eof = bytes.is_empty();
+            let newline = bytes.iter().position(|byte| *byte == b'\n');
+            let len = newline.unwrap_or(bytes.len());
+            let keep = len.min(MAX_LOG_LINE_BYTES.saturating_sub(line.len()));
+            line.extend_from_slice(&bytes[..keep]);
+            truncated |= keep < len;
+            reader.consume(len + usize::from(newline.is_some()));
+            if newline.is_some() || (eof && !line.is_empty()) {
+                if !truncated && newline.is_some() && line.last() == Some(&b'\r') {
+                    line.pop();
+                }
+                // A UTF-8 codepoint may straddle the byte limit.
+                if truncated {
+                    if let Err(error) = std::str::from_utf8(&line) {
+                        if error.error_len().is_none() {
+                            line.truncate(error.valid_up_to());
+                        }
                     }
                 }
-                Err(_) => break,
+                let mut text = match String::from_utf8(std::mem::take(&mut line)) {
+                    Ok(text) => text,
+                    Err(_) => break,
+                };
+                if truncated {
+                    text.push_str(TRUNCATED_LOG);
+                }
+                if sender.send(text).is_err() {
+                    break;
+                }
+                truncated = false;
+            }
+            if eof {
+                break;
             }
         }
     });
@@ -631,6 +702,86 @@ mod tests {
     use super::*;
     use std::sync::mpsc;
     use std::time::Duration;
+
+    #[test]
+    #[ignore = "local log memory benchmark"]
+    fn log_cache_memory_profile() {
+        let pid = sysinfo::get_current_pid().unwrap();
+        let mut system = sysinfo::System::new();
+        let mut memory = || {
+            system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
+            system.process(pid).unwrap().memory()
+        };
+        let before = memory();
+        let sessions: Vec<_> = (0..3).map(|n| Session::new(&n.to_string(), 5000)).collect();
+        let payload = "x".repeat(8192);
+        for session in &sessions {
+            for n in 0..5000 {
+                session.push_log("stdout", &format!("{n:08}{payload}"));
+            }
+        }
+        let retained: usize = sessions
+            .iter()
+            .map(|s| {
+                s.logs
+                    .lock()
+                    .unwrap()
+                    .entries
+                    .iter()
+                    .map(|e| e.text.len())
+                    .sum::<usize>()
+            })
+            .sum();
+        println!(
+            "MEMORY_PROFILE before={} loaded={} retained_text={}",
+            before,
+            memory(),
+            retained
+        );
+        for session in &sessions {
+            session.clear_logs();
+        }
+        println!("MEMORY_PROFILE cleared={}", memory());
+    }
+
+    #[test]
+    fn log_cache_bounds_bytes_preserves_tail_and_releases_clear_capacity() {
+        let session = Session::new("large", 5000);
+        let text = "中".repeat(3000);
+        for n in 0..5000 {
+            session.push_log("stdout", &format!("{n}:{text}"));
+        }
+        let logs = session.logs.lock().unwrap();
+        assert!(logs.bytes <= MAX_LOG_BYTES);
+        assert!(logs.entries.len() < 5000);
+        assert!(logs.entries.back().unwrap().text.starts_with("4999:"));
+        assert_eq!(
+            logs.bytes,
+            logs.entries
+                .iter()
+                .map(LogEntry::retained_bytes)
+                .sum::<usize>()
+        );
+        drop(logs);
+        session.clear_logs();
+        let logs = session.logs.lock().unwrap();
+        assert_eq!(logs.bytes, 0);
+        assert_eq!(logs.entries.capacity(), 0);
+    }
+
+    #[test]
+    fn oversized_line_is_bounded_utf8_safe_and_following_lines_survive() {
+        let input = format!("{}\r\nnext\r\n\nlast", "中".repeat(MAX_LOG_LINE_BYTES));
+        let mut lines = Vec::new();
+        read_log_batches(std::io::Cursor::new(input.into_bytes()), |batch| {
+            lines.extend(batch)
+        });
+        assert_eq!(lines.len(), 4);
+        assert!(lines[0].ends_with(TRUNCATED_LOG));
+        assert!(!lines[0].contains('\u{fffd}'));
+        assert!(lines[0].len() <= MAX_LOG_LINE_BYTES + TRUNCATED_LOG.len());
+        assert_eq!(&lines[1..], &["next", "", "last"]);
+    }
 
     struct LiveOutput {
         first: std::io::Cursor<Vec<u8>>,
@@ -885,6 +1036,44 @@ mod tests {
         assert!(two.is_cancelled());
         drop(one);
         assert!(runtime.begin_workspace_launch("one").is_ok());
+    }
+
+    #[test]
+    fn colored_sql_is_plain_in_live_entries_history_and_serialization() {
+        let session = Session::new("sql", 100);
+        let sql = "SQL: \u{1b}[94m\u{1b}[96mSELECT\u{1b}[0m\u{1b}[94m * \u{1b}[96mFROM\u{1b}[0m\u{1b}[94m reliable_event WHERE status IN (\u{1b}[32m'PENDING'\u{1b}[0m, 'FAILED') AND attempt_count < max_attempts\u{1b}[0m";
+        let plain = "SQL: SELECT * FROM reliable_event WHERE status IN ('PENDING', 'FAILED') AND attempt_count < max_attempts";
+        let input =
+            format!("\u{1b}[92m ✅ 正常执行 │ 耗时: 3ms\u{1b}[0m\r\n{sql}\r\n\u{1b}[0m\r\n");
+        let mut live = Vec::new();
+        read_log_batches(std::io::Cursor::new(input.into_bytes()), |batch| {
+            live.extend(
+                batch
+                    .iter()
+                    .filter_map(|line| session.push_log("stdout", line)),
+            );
+        });
+        assert_eq!(live.len(), 2);
+        assert_eq!(live[0].text, " ✅ 正常执行 │ 耗时: 3ms");
+        assert_eq!(live[1].text, plain);
+        let history = session.history(None);
+        assert_eq!(history[1].text, live[1].text);
+        let json = serde_json::to_string(&history).unwrap();
+        assert!(!json.contains("\\u001b"));
+        assert!(json.contains(plain));
+    }
+
+    #[test]
+    fn terminal_metadata_is_removed_without_changing_log_content() {
+        let session = Session::new("stderr", 100);
+        let entry = session
+            .push_log("stderr", "\u{1b}]0;Build window\u{7}  \t\u{1b}[31m错误: \u{1b}]8;;https://example.test\u{1b}\\详细信息\u{1b}]8;;\u{1b}\\ <tag> &amp; [FAILED]\u{1b}[0m\u{1b}[K")
+            .unwrap();
+        assert_eq!(entry.stream, "stderr");
+        assert_eq!(entry.text, "  \t错误: 详细信息 <tag> &amp; [FAILED]");
+        let ordinary = "  SQL: SELECT * FROM t WHERE value < 20 AND name = '中文'";
+        assert_eq!(session.push_log("stdout", ordinary).unwrap().text, ordinary);
+        assert_eq!(session.history(Some(1))[0].text, ordinary);
     }
 
     #[test]

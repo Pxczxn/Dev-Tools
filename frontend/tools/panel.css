@@ -5,6 +5,21 @@ body { padding-top: var(--xd-toolbar-height); }
 .modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .main-content { scrollbar-width: thin; }
 body.xd-ws-page .main-content { overflow: hidden; }
+/* Log height follows the remaining page space, including wrapped toolbars. */
+body.xd-logs-page .main-content { min-height: 0; overflow: hidden; }
+body.xd-logs-page .main-content > .header { flex-shrink: 0; }
+body.xd-logs-page .content-area {
+  display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+}
+body.xd-logs-page .content-area > :not(.log-container) { flex-shrink: 0; }
+body.xd-logs-page .log-container {
+  display: flex; flex-direction: column; flex: 1; min-height: 0; margin-bottom: 0;
+}
+body.xd-logs-page .log-container > .log-toolbar { flex-shrink: 0; }
+body.xd-logs-page .log-scroll {
+  flex: 1; min-height: 0; max-height: none; overflow: auto;
+  overscroll-behavior: contain; scrollbar-gutter: stable;
+}
 #xd-toolbar { position: fixed; inset: 0 0 auto; height: var(--xd-toolbar-height); z-index: 40;
   display: flex; align-items: center; gap: 24px; padding: 12px 24px;
   border-bottom: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary);

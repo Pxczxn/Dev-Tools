@@ -1,16 +1,16 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "XchenDev-Tools",
+  "productName": "Dev-Tools",
   "version": "0.1.0",
   "identifier": "com.xchendev.tools",
-  "mainBinaryName": "XchenDev-Tools",
+  "mainBinaryName": "Dev-Tools",
   "build": {
     "frontendDist": "../frontend"
   },
   "app": {
     "windows": [
       {
-        "title": "XchenDev-Tools",
+        "title": "Dev-Tools",
         "width": 1250,
         "height": 700,
         "minWidth": 900,
@@ -35,7 +35,7 @@
     "category": "DeveloperTool",
     "publisher": "XchenDev",
     "copyright": "Copyright © 2026 XchenDev",
-    "homepage": "https://github.com/Pxczxn/XchenDev-Tools",
+    "homepage": "https://github.com/Pxczxn/Dev-Tools",
     "shortDescription": "Windows 本地开发一体化工具",
     "longDescription": "工作区制本地开发一体化工具：项目发现、服务编排、端口与进程管理。",
     "icon": [

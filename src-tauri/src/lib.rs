@@ -1,6 +1,7 @@
 mod commands;
 mod launch;
 mod net;
+mod path_usage;
 mod runtime;
 mod store;
 
@@ -10,6 +11,17 @@ use store::AppState;
 use tauri::{Emitter, Manager};
 
 pub fn run() {
+    let context = tauri::generate_context!();
+    #[cfg(feature = "portable")]
+    let context = {
+        let mut context = context;
+        // Tauri resolves this root relative to the executable, independent of cwd.
+        // Keep WebView storage, caches and framework logs inside the portable folder.
+        context.config_mut().app.app_directories_override = Some(
+            tauri::utils::config::AppDirectoriesOverride::Root("data/webview".into()),
+        );
+        context
+    };
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -114,7 +126,7 @@ pub fn run() {
             environment::environment_detect_all,
             environment::environment_detect_single,
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running tauri application");
 }
 

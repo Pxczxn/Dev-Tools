@@ -32,6 +32,8 @@ function renderErrors() {
   badge.setAttribute('aria-label', `报错收集，${collector.items.length} 类，共 ${total} 次`);
   byId('xd-errsummary').textContent = total ? `${collector.items.length} 类问题 · 共出现 ${total} 次` : '暂无报错，正在监听服务日志';
   byId('xd-errclear').disabled = !total;
+  // Keep collecting and updating the badge while closed; render details on open.
+  if (errors.hidden) return;
   // 保留用户已展开的原文；新日志只更新计数和排序。
   const expanded = new Set([...byId('xd-errlist').querySelectorAll('details[open]')].map(node => node.dataset.key));
   byId('xd-errlist').innerHTML = collector.items.length ? collector.items.map(item => {
@@ -55,7 +57,7 @@ badge.addEventListener('click', () => {
   const open = errors.hidden;
   closeResults();
   toggle(errors, badge, open);
-  if (open) { refreshNames(); byId('xd-errclose').focus(); }
+  if (open) { renderErrors(); refreshNames(); byId('xd-errclose').focus(); }
 });
 byId('xd-errclose').addEventListener('click', () => { closeErrors(); badge.focus(); });
 byId('xd-errclear').addEventListener('click', () => { collector.clear(); renderErrors(); });
@@ -93,8 +95,11 @@ async function runSearch() {
       const unique = [...new Map(entries.map(e => [`${e.protocol}:${e.pid}`, e])).values()];
       content = unique.length ? unique.map(e => processRow(`端口 ${e.port} · ${e.protocol.toUpperCase()}`, `PID ${e.pid}`, e.pid)).join('') : `<p class="xd-note">端口 ${query.value} 未被占用</p>`;
     } else if (query.kind === 'path') {
-      const [directory, file] = await Promise.all([ipc('check_is_directory', { path: query.value }), ipc('check_is_file', { path: query.value })]);
-      content = directory || file ? `<div class="xd-row"><div>${directory ? '目录' : '文件'}存在<p class="xd-muted">${escape(query.value)}</p></div><button type="button" data-open="${escape(query.value)}">打开</button></div><p class="xd-note">路径占用查询暂未实现。</p>` : `<p class="xd-note">路径不存在：${escape(query.value)}</p>`;
+      const usage = await ipc('query_path', { path: query.value });
+      const stats = usage.diagnostics;
+      content = `<div class="xd-row"><div>路径占用<p class="xd-muted">${escape(query.value)}</p></div><button type="button" data-open="${escape(query.value)}">打开</button></div>`;
+      content += usage.occupations.length ? usage.occupations.map(p => processRow(p.processName, `PID ${p.pid}`, p.pid).replace('data-pid=', `data-path="${escape(query.value)}" data-pid=`)).join('') : '<p class="xd-note">未发现扫描范围内的文件占用。</p>';
+      content += `<p class="xd-note">已扫描 ${stats.filesScanned} 个文件${stats.limited ? ' · 已达到扫描上限，结果不完整，请缩小目录范围' : ''}${stats.skipped ? ` · ${stats.skipped} 项无法读取或为链接，已跳过` : ''}。${escape(stats.note)}</p>`;
     } else {
       const processes = await ipc('get_process_info');
       const hits = processes.filter(p => p.name.toLowerCase().includes(query.value.toLowerCase()));
@@ -113,7 +118,14 @@ resultList.addEventListener('click', async event => {
   if (button.dataset.pid && !window.confirm(`确定终止 PID ${button.dataset.pid}？未保存的工作可能丢失。`)) return;
   button.disabled = true;
   try {
-    if (button.dataset.pid) { await ipc('kill_process_by_pid', { pid: Number(button.dataset.pid) }); await runSearch(); }
+    if (button.dataset.pid) {
+      if (button.dataset.path) {
+        const outcomes = await ipc('release_path', { path: button.dataset.path, pids: [Number(button.dataset.pid)] });
+        const failed = outcomes.find(item => !item.success);
+        if (failed) throw new Error(failed.message);
+      } else await ipc('kill_process_by_pid', { pid: Number(button.dataset.pid) });
+      await runSearch();
+    }
     else if (button.dataset.open) await ipc('open_path', { path: button.dataset.open });
   } catch (error) { button.disabled = false; button.textContent = '重试'; const note = document.createElement('p'); note.className = 'xd-note'; note.textContent = `操作失败：${error.message || error}`; button.parentElement.append(note); }
   finally { button.disabled = false; }
@@ -122,6 +134,7 @@ resultList.addEventListener('click', async event => {
 function updateRoute() {
   document.body.classList.toggle('xd-home', routePath(location) === '/');
   document.body.classList.toggle('xd-ws-page', /^\/projects\/[^/]+/.test(routePath(location)));
+  document.body.classList.toggle('xd-logs-page', /^(?:\/logs|\/projects\/[^/]+\/logs)$/.test(routePath(location)));
   byId('xd-launch-open').hidden = !/^\/projects(?:\/|$)/.test(routePath(location));
 }
 function routeChanged() { updateRoute(); closeResults(); closeErrors(); }

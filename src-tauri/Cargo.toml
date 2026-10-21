@@ -1,13 +1,20 @@
 [package]
 name = "xchendev-tools"
 version = "0.1.0"
-description = "XchenDev-Tools Windows desktop companion"
+description = "Dev-Tools Windows desktop companion"
 authors = ["XchenDev"]
 edition = "2021"
 
 [lib]
 name = "xchendev_tools_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "dev-tools"
+path = "src/main.rs"
+
+[features]
+portable = ["tauri/custom-protocol"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

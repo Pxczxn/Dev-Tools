@@ -84,6 +84,7 @@ Desktop.ini
 
 # 本地程序、运行数据及配置备份（配置示例保留）
 /XchenDev-Tools.exe
+/Dev-Tools.exe
 /data/
 *.bak
 .run/
