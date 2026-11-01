@@ -17,7 +17,8 @@ function runVersionCheck(tag) {
 }
 
 test('release tag must match every packaged version', () => {
-  assert.match(runVersionCheck('v1.0.0'), /Version 1\.0\.0 matches/);
+  const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+  assert.match(runVersionCheck(`v${version}`), new RegExp(`Version ${version.replaceAll('.', '\\.')} matches`));
   assert.throws(() => runVersionCheck('v9.9.9'), error => {
     const output = `${error.stdout || ''}${error.stderr || ''}${error.message}`;
     return output.includes('does not match');

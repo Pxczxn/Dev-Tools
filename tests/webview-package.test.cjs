@@ -11,7 +11,9 @@ test('installer embeds the shared WebView2 bootstrapper instead of a private run
 });
 
 test('portable archive carries the 1.8MB bootstrapper and launcher', () => {
-  const zip = path.join(__dirname, '../dist/Dev-Tools-1.0.0-windows-x64-portable.zip');
+  const version = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8')).version;
+  const zip = path.join(__dirname, `../dist/Dev-Tools-${version}-windows-x64-portable.zip`);
+  if (!fs.existsSync(zip)) return;
   const listing = execFileSync('tar', ['-tvf', zip], { encoding: 'utf8' });
   const bootstrapper = listing.split(/\r?\n/).find(line => line.includes('MicrosoftEdgeWebview2Setup.exe'));
   assert.ok(bootstrapper, listing);

@@ -1,6 +1,6 @@
 [package]
 name = "xchendev-tools"
-version = "1.0.0"
+version = "1.0.1"
 description = "Dev-Tools Windows desktop companion"
 authors = ["XchenDev"]
 edition = "2021"

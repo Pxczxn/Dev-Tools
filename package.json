@@ -1,7 +1,7 @@
 {
   "name": "dev-tools",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "test:frontend": "node --test tests/frontend.test.cjs",

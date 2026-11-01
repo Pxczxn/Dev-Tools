@@ -2,7 +2,7 @@
 
 Dev-Tools 是一个面向 Windows 本地开发环境的桌面控制台，用来集中处理开发过程中常见的端口冲突、进程占用、基础服务、运行时环境与项目启动管理。
 
-当前版本：`1.0.0`（测试版）
+当前版本：`1.0.1`
 
 ## 主要能力
 
@@ -112,7 +112,7 @@ src-tauri\target\release\bundle\nsis\
 
 ## 状态
 
-当前版本是 `1.0.0`。推送 `v*` 标签后，Windows 便携包和 NSIS 安装包由 `.github/workflows/release-windows.yml` 构建并发布。
+当前版本是 `1.0.1`。推送 `v*` 标签后，Windows 便携包和 NSIS 安装包由 `.github/workflows/release-windows.yml` 构建并发布。
 
 ---
 
