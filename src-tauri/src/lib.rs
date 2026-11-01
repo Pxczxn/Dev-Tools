@@ -1,11 +1,15 @@
 mod commands;
+mod dev_server;
+mod infra;
 mod launch;
+mod local_infra;
 mod net;
 mod path_usage;
 mod runtime;
 mod store;
 
-use commands::{app, environment, history, log, path, port, process, service, workspace};
+use commands::{app, environment, history, infra as infra_cmd, log, path, port, process, service, workspace};
+use local_infra::LocalInfraRuntime;
 use runtime::RuntimeManager;
 use store::AppState;
 use tauri::{Emitter, Manager};
@@ -27,7 +31,11 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(AppState::new())
         .manage(RuntimeManager::new())
+        .manage(LocalInfraRuntime::default())
         .setup(|app| {
+            // 调试构建没有 Vite。先在 127.0.0.1:1430 提供 frontend/，
+            // 窗口的 devUrl 才能打开带 MySQL / Redis 工具条的页面。
+            dev_server::ensure_started();
             // 自动刷新心跳：按设置的 autoRefresh/refreshInterval 周期广播
             // 全部会话状态（runtime:changed），前端监听器据此更新服务列表，
             // 进程自尽/外部终止也能在下一拍反映出来。
@@ -125,6 +133,13 @@ pub fn run() {
             // environment
             environment::environment_detect_all,
             environment::environment_detect_single,
+            // MySQL / Redis Windows services
+            infra_cmd::list_infra_services,
+            infra_cmd::control_infra_service,
+            infra_cmd::get_local_databases,
+            infra_cmd::save_local_database,
+            infra_cmd::control_local_database,
+            infra_cmd::locate_database_files,
         ])
         .run(context)
         .expect("error while running tauri application");

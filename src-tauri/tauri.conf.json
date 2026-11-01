@@ -5,6 +5,8 @@
   "identifier": "com.xchendev.tools",
   "mainBinaryName": "Dev-Tools",
   "build": {
+    "beforeDevCommand": "node scripts/dev-frontend.mjs",
+    "devUrl": "http://127.0.0.1:1430",
     "frontendDist": "../frontend"
   },
   "app": {

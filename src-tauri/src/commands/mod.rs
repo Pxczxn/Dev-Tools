@@ -1,5 +1,6 @@
 pub mod app;
 pub mod environment;
+pub mod infra;
 pub mod history;
 pub mod log;
 pub mod path;

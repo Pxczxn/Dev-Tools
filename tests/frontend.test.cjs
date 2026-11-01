@@ -121,6 +121,95 @@ test('routes global tools using the actual hash router', () => {
   assert.equal(routePath({ hash: '', pathname: '/logs' }), '/logs');
 });
 
+test('database path buttons open the matching system picker', async () => {
+  const { pickerOptions, selectedPath } = await import('../frontend/tools/infra-picker.js');
+  const program = pickerOptions('mysql', 'executable', '  ');
+  assert.equal(program.directory, undefined);
+  assert.equal(program.multiple, false);
+  assert.equal(program.defaultPath, undefined);
+  assert.equal(program.filters[0].name, 'mysqld.exe');
+  assert.deepEqual(program.filters[0].extensions, ['exe']);
+  const directory = pickerOptions('redis', 'dataDir', 'D:\\redis\\data');
+  assert.equal(directory.directory, true);
+  assert.equal(directory.title, '选择数据目录');
+  assert.equal(directory.defaultPath, 'D:\\redis\\data');
+  const config = pickerOptions('redis', 'configFile', '');
+  assert.equal(config.directory, undefined);
+  assert.deepEqual(config.filters[0].extensions, ['ini', 'cnf', 'conf']);
+  assert.equal(selectedPath(null), '');
+  assert.equal(selectedPath(['D:\\redis\\redis-server.exe']), '');
+  assert.equal(selectedPath('D:\\mysql\\bin\\mysqld.exe'), 'D:\\mysql\\bin\\mysqld.exe');
+});
+
+test('homepage and software table use the Xiaopi status layout', async () => {
+  const { homeBlock, settingsTabs, softwareTable } = await import('../frontend/tools/infra-board.js');
+  const table = softwareTable([
+    { kind: 'mysql', state: 'running', port: 3306, executable: 'C:\\mysql\\bin\\mysqld.exe' },
+    { kind: 'redis', state: 'stopped', port: 6379, executable: '' },
+  ]);
+  assert.match(table, /软件名称/);
+  assert.match(table, /状态/);
+  assert.match(table, /端口/);
+  assert.match(table, /操作/);
+  assert.match(table, /xp-state is-on/);
+  assert.match(table, />启动</);
+  assert.match(table, /xp-state is-off/);
+  assert.match(table, />停止</);
+  assert.match(homeBlock([]), /数据库/);
+  assert.match(softwareTable([{
+    kind: 'mysql', state: 'stopped', port: 3306, executable: 'D:\\custom\\mysqld.exe',
+    resolvedExecutable: 'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqld.exe',
+    executableSource: 'default',
+  }]), /默认安装/);
+  const { serviceListState } = await import('../frontend/tools/infra-board.js');
+  const programs = [{
+    kind: 'mysql',
+    resolvedExecutable: 'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqld.exe',
+    executable: '',
+  }];
+  const same = serviceListState(programs, [{
+    name: 'pxczxn',
+    binaryPath: '"C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqld.exe" --defaults-file="C:\\ProgramData\\MySQL\\MySQL Server 8.0\\my.ini"',
+  }]);
+  assert.equal(same.visible, false);
+  assert.deepEqual(same.services, []);
+  const other = serviceListState(programs, [{
+    name: 'other-mysql',
+    binaryPath: 'D:\\db\\bin\\mysqld.exe --console',
+  }]);
+  assert.equal(other.visible, true);
+  assert.equal(other.services[0].name, 'other-mysql');
+  assert.deepEqual(settingsTabs('mysql'), ['端口', '存储位置', '配置文件', '当前状态']);
+  assert.deepEqual(settingsTabs('redis'), ['性能调整', '配置文件', '当前状态']);
+});
+
+test('restart current terminal uses only the selected service', async () => {
+  const { readFileSync } = require('node:fs');
+  const { join } = require('node:path');
+  const { restartCurrentTerminal } = await import('../frontend/tools/log-restart.js');
+  const bundle = readFileSync(join(__dirname, '../frontend/assets/index-BuLY3L2r.js'), 'utf8');
+  const at = bundle.indexOf('children:"重启当前终端"');
+  assert.ok(at > 0);
+  assert.equal(bundle.indexOf('children:"重启当前终端"', at + 1), -1);
+  const around = bundle.slice(Math.max(0, at - 260), at + 40);
+  assert.match(around, /xdRestartCurrentTerminal\?\.\(N,\{unsubscribe:u,clear:v,subscribe:o\}\)/);
+  assert.doesNotMatch(around, /restart_process|start_process/);
+  const steps = [];
+  assert.equal(await restartCurrentTerminal('', { clear: async id => steps.push(id) }), 'empty');
+  assert.equal(steps.length, 0);
+  assert.equal(await restartCurrentTerminal('svc-a', {
+    unsubscribe: async id => steps.push(['off', id]),
+    clear: async id => steps.push(['clear', id]),
+    subscribe: async id => steps.push(['on', id]),
+  }), 'restarted');
+  assert.deepEqual(steps, [['off', 'svc-a'], ['clear', 'svc-a'], ['on', 'svc-a']]);
+  assert.equal(await restartCurrentTerminal('svc-b', {
+    clear: async () => { throw new Error('缓冲还在'); },
+    report: message => steps.push(message),
+  }), 'failed');
+  assert.match(steps.at(-1), /缓冲还在/);
+});
+
 test('preserves actual Maven errors with Help links and explains locked packaging artifacts', () => {
   const c = createCollector();
   add(c, "[ERROR] Failed to execute goal repackage: Unable to rename 'target/app.jar' to 'target/app.jar.original' -> [Help 1]");

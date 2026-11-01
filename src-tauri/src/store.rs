@@ -1,3 +1,4 @@
+use crate::local_infra::LocalDatabases;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -17,6 +18,8 @@ pub struct PersistFile {
     pub history: Vec<HistoryRecord>,
     #[serde(default)]
     pub favorites: Vec<FavoriteRecord>,
+    #[serde(default)]
+    pub local_databases: LocalDatabases,
 }
 
 impl Default for PersistFile {
@@ -28,6 +31,7 @@ impl Default for PersistFile {
             services: Vec::new(),
             history: Vec::new(),
             favorites: Vec::new(),
+            local_databases: LocalDatabases::default(),
         }
     }
 }

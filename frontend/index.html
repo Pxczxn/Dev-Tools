@@ -20,13 +20,16 @@
     <link rel="stylesheet" crossorigin href="/assets/index-BOcdRZgS.css">
     <link rel="stylesheet" href="/tools/panel.css" />
     <script type="module" src="/tools/panel.js"></script>
+    <script type="module" src="/tools/log-restart-boot.js"></script>
     <script type="module" src="/tools/launch.js"></script>
+    <script type="module" src="/tools/infra.js"></script>
   </head>
   <body>
     <div id="root"></div>
     <header id="xd-toolbar" aria-label="全局工具">
       <span class="xd-toolbar-label">快捷工具</span>
       <button id="xd-launch-open" type="button" hidden>启动方案</button>
+      <button id="xd-infra-open" type="button" hidden>MySQL / Redis</button>
       <form id="xd-search" role="search" aria-label="搜索本机端口、路径和进程">
         <span class="xd-search-icon" aria-hidden="true">⌕</span>
         <input id="xd-searchinput" type="search" autocomplete="off" spellcheck="false"
@@ -71,5 +74,22 @@
         <div class="xd-launch-footer"><span class="xd-muted">保存不会自动执行命令</span><button id="xd-launch-save" type="submit">保存启动方案</button></div>
       </form>
     </dialog>
+    <section id="xd-infra-page" hidden>
+      <div class="xd-infra-page-head">
+        <div>
+          <h2 class="page-title">MySQL / Redis</h2>
+          <p class="page-subtitle">状态按钮灰色表示停止，绿色表示启动。点一下即可切换。这里不建站，也不修改数据库密码。</p>
+        </div>
+        <div class="xd-infra-actions">
+          <button id="xd-infra-refresh" type="button">刷新</button>
+          <button id="xd-infra-close" type="button">返回</button>
+        </div>
+      </div>
+      <div id="xd-infra-local"></div>
+      <h2 id="xd-infra-services-title" class="xd-infra-subtitle" hidden>Windows 服务</h2>
+      <div id="xd-infra-list" hidden></div>
+      <p id="xd-infra-status" role="status"></p>
+    </section>
+    <dialog id="xd-infra-settings" aria-label="数据库设置"></dialog>
   </body>
 </html>
