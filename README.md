@@ -92,7 +92,7 @@ cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D w
 
 ## Windows 安装包
 
-项目使用 **NSIS** 打包 Windows x64 安装程序，采用当前用户安装模式，不要求管理员权限，并提供简体中文 / English 安装界面。
+项目使用 **NSIS** 打包 Windows x64 安装程序，采用当前用户安装模式，不要求管理员权限，并提供简体中文 / English 安装界面。安装包内嵌约 1.8MB 的 WebView2 启动器：系统里已经有运行库时不会再装；没有时才下载并安装 Microsoft 的共享运行库。便携包同样附带这个启动器。不打包约 180MB 的固定版运行库，因为它和共享运行库使用同一个渲染进程，不能降低内存或提高速度。
 
 本地构建：
 
@@ -108,26 +108,11 @@ src-tauri\target\release\bundle\nsis\
 
 应用图标以 `public/app-icon.svg` 为唯一源文件，开发和构建流程会自动生成 Tauri 所需的 Windows 图标集。
 
-仓库中的 `Package Windows` GitHub Actions 工作流会在正式打包前执行版本一致性校验、依赖审计、前后端测试与静态检查，并对生成的安装程序进行静默安装 / 卸载回归，确认卸载不会删除用户配置，同时输出 SHA256 校验值。
-
-推送符合 `v*` 规则的版本标签（例如 `v0.1.0`）后，`Release Windows` 工作流会再次执行完整发布检查，构建 NSIS 安装程序并创建或更新对应的 GitHub Release。
-
-## CI
-
-主分支和 Pull Request 会执行：
-
-- npm 依赖审计
-- 前端测试与构建
-- Rust 格式检查
-- Clippy `-D warnings`
-- Rust 全量测试
-- Tauri release application build（不生成安装包）
-
-正式安装包由独立 Windows packaging workflow 构建，避免普通 CI 每次都承担 NSIS 打包成本。
+推送符合 `v*` 规则的版本标签（例如 `v1.0.0`）后，`.github/workflows/release-windows.yml` 会核对标签与 `package.json`、`Cargo.toml`、`tauri.conf.json` 的版本号，再调用 `npm run build:portable` 和 `npx tauri build --bundles nsis`。便携包仍是 `Dev-Tools-<版本>-windows-x64-portable.zip`。NSIS 安装包沿用 Tauri 的 `Dev-Tools_<版本>_x64-setup.exe`。两者都写出同样格式的 SHA256 侧车：小写哈希、两个空格、文件名、CRLF。工作流确认两个包都能启动后，把它们上传到对应的 GitHub Release。
 
 ## 状态
 
-项目处于 `v0.1.0` 发布前封板阶段。核心功能、Windows 安装包构建、图标生成、版本一致性检查和安装 / 卸载持久化回归均已接入自动化流程；发布前不优先扩展新功能。
+当前版本是 `1.0.0`。推送 `v*` 标签后，Windows 便携包和 NSIS 安装包由 `.github/workflows/release-windows.yml` 构建并发布。
 
 ---
 

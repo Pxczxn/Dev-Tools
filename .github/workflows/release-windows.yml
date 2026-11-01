@@ -1,0 +1,85 @@
+name: Release Windows
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+
+      - name: Check the tag against the project version
+        shell: pwsh
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-release-version.ps1 -Tag ${{ github.ref_name }}
+
+      - name: Install npm dependencies and generate icons
+        run: npm ci
+
+      - name: Run frontend tests
+        run: npm run test:frontend
+
+      - name: Fetch Rust dependencies for the offline portable build
+        run: cargo fetch --locked --manifest-path src-tauri/Cargo.toml --target x86_64-pc-windows-msvc
+
+      - name: Build the portable archive
+        run: npm run build:portable
+
+      - name: Build the NSIS installer
+        run: npx tauri build --bundles nsis
+
+      - name: Write NSIS checksums in the portable sidecar format
+        shell: pwsh
+        run: |
+          $setups = Get-ChildItem -Path src-tauri/target/release/bundle/nsis -Filter '*-setup.exe'
+          if (-not $setups) { throw 'NSIS installer was not produced.' }
+          foreach ($setup in $setups) {
+            pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/write-sha256.ps1 -Path $setup.FullName
+          }
+
+      - name: Confirm artifact names and checksums use one version
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw -Encoding utf8 | ConvertFrom-Json).version
+          $portable = Get-Item "dist/Dev-Tools-$version-windows-x64-portable.zip"
+          $portableHash = Get-Content "$($portable.FullName).sha256" -Raw
+          $setup = Get-ChildItem src-tauri/target/release/bundle/nsis -Filter "*_$version`_x64-setup.exe" | Select-Object -First 1
+          if (-not $setup) { throw "NSIS installer for $version was not found." }
+          $setupHash = Get-Content "$($setup.FullName).sha256" -Raw
+          foreach ($entry in @($portableHash, $setupHash)) {
+            if ($entry -notmatch '^[0-9a-f]{64}  \S+\r\n$') { throw "Unexpected checksum sidecar: $entry" }
+          }
+          if ($portableHash -notlike "*$($portable.Name)*") { throw 'Portable checksum name does not match the archive.' }
+          if ($setupHash -notlike "*$($setup.Name)*") { throw 'NSIS checksum name does not match the installer.' }
+          Write-Output "Artifacts for $version match their checksum sidecars."
+
+      - name: Smoke-start both packages
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw -Encoding utf8 | ConvertFrom-Json).version
+          $setup = Get-ChildItem src-tauri/target/release/bundle/nsis -Filter "*_$version`_x64-setup.exe" | Select-Object -First 1
+          pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-packages.ps1 -PortableZip "dist/Dev-Tools-$version-windows-x64-portable.zip" -SetupExe $setup.FullName
+
+      - name: Publish the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Dev-Tools-*-windows-x64-portable.zip
+            dist/Dev-Tools-*-windows-x64-portable.zip.sha256
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/bundle/nsis/*-setup.exe.sha256
+          generate_release_notes: true
