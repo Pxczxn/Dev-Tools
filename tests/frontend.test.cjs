@@ -217,3 +217,32 @@ test('preserves actual Maven errors with Help links and explains locked packagin
   assert.equal(c.items.length, 1);
   assert.match(c.items[0].hint, /无法重命名/);
 });
+
+test('settings about can check, explain, and refuse an unsigned update', async () => {
+  const { readFileSync, rmSync } = require('node:fs');
+  const { join } = require('node:path');
+  const { spawnSync } = require('node:child_process');
+  const html = readFileSync(join(__dirname, '../frontend/index.html'), 'utf8');
+  const source = readFileSync(join(__dirname, '../frontend/tools/update.js'), 'utf8');
+  const workflow = readFileSync(join(__dirname, '../.github/workflows/release-windows.yml'), 'utf8');
+  assert.match(html, /tools\/update\.js/);
+  assert.match(source, /get_app_version/);
+  assert.match(source, /update_check/);
+  assert.match(source, /暂时无法连接更新服务器，当前版本仍可离线使用/);
+  assert.match(source, /下载并安装/);
+  assert.match(workflow, /TAURI_SIGNING_PRIVATE_KEY/);
+  assert.match(workflow, /dist\/latest\.json/);
+  assert.match(workflow, /windows-x64-portable\.zip\.sig/);
+  assert.match(workflow, /-setup\.exe\.sig/);
+  const output = join(require('node:os').tmpdir(), 'dev-tools-latest-test.json');
+  const run = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(__dirname, '../scripts/write-latest-json.ps1'), '-Version', '1.2.3', '-PortableFileName', 'Dev-Tools-1.2.3-windows-x64-portable.zip', '-SetupFileName', 'Dev-Tools_1.2.3_x64-setup.exe', '-PortableSignature', 'portable-sig', '-SetupSignature', 'setup-sig', '-Notes', '修复启动', '-Output', output], { encoding: 'utf8' });
+  assert.equal(run.status, 0, run.stderr);
+  const manifest = JSON.parse(readFileSync(output, 'utf8'));
+  assert.equal(manifest.version, '1.2.3');
+  assert.equal(manifest.notes, '修复启动');
+  assert.equal(manifest.platforms['windows-x86_64-portable'].signature, 'portable-sig');
+  assert.equal(manifest.platforms['windows-x86_64'].signature, 'setup-sig');
+  assert.match(manifest.platforms['windows-x86_64-portable'].url, /\/v1\.2\.3\/Dev-Tools-1\.2\.3-windows-x64-portable\.zip$/);
+  assert.match(manifest.platforms['windows-x86_64'].url, /\/v1\.2\.3\/Dev-Tools_1\.2\.3_x64-setup\.exe$/);
+  rmSync(output, { force: true });
+});

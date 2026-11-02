@@ -46,5 +46,14 @@ test('tag workflow builds both Windows packages and publishes the release', () =
   assert.match(workflow, /npx tauri build --bundles nsis/);
   assert.match(workflow, /softprops\/action-gh-release@v2/);
   assert.match(workflow, /Dev-Tools-\*-windows-x64-portable\.zip/);
+  assert.match(workflow, /Dev-Tools-\*-windows-x64-portable\.zip\.sha256/);
+  assert.match(workflow, /Dev-Tools-\*-windows-x64-portable\.zip\.sig/);
   assert.match(workflow, /-setup\.exe/);
+  assert.match(workflow, /-setup\.exe\.sha256/);
+  assert.match(workflow, /-setup\.exe\.sig/);
+  assert.match(workflow, /dist\/latest\.json/);
+  assert.match(workflow, /TAURI_SIGNING_PRIVATE_KEY/);
+  assert.match(workflow, /sign-update/);
+  const signer = fs.readFileSync(path.join(root, 'src-tauri/examples/sign-update.rs'), 'utf8');
+  assert.match(signer, /into_secret_key\(Some\(String::new\(\)\)\)/);
 });

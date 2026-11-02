@@ -7,6 +7,7 @@ mod net;
 mod path_usage;
 mod runtime;
 mod store;
+mod updater;
 
 use commands::{app, environment, history, infra as infra_cmd, log, path, port, process, service, workspace};
 use local_infra::LocalInfraRuntime;
@@ -15,6 +16,37 @@ use store::AppState;
 use tauri::{Emitter, Manager};
 
 pub fn run() {
+    if std::env::var_os("DEV_TOOLS_PRINT_VERSION").is_some() {
+        println!("{}", updater::current_version());
+        if let Ok(path) = std::env::current_exe() {
+            if let Some(dir) = path.parent() {
+                let marker = dir.join("data").join("launched-version.txt");
+                let _ = std::fs::create_dir_all(marker.parent().unwrap());
+                let _ = std::fs::write(marker, updater::current_version());
+            }
+        }
+        return;
+    }
+    if std::env::var_os("DEV_TOOLS_UPDATE_APPLY").is_some() {
+        match updater::install_available_update(updater::Relaunch::PrintVersion) {
+            Ok(report) if report.status == "available" => std::process::exit(0),
+            Ok(report) => {
+                let _ = std::fs::write(
+                    std::env::current_exe()
+                        .ok()
+                        .and_then(|path| path.parent().map(|dir| dir.join("data").join("update-result.txt")))
+                        .unwrap_or_else(|| std::path::PathBuf::from("update-result.txt")),
+                    report.message,
+                );
+                std::process::exit(1);
+            }
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::exit(1);
+            }
+        }
+    }
+    updater::remove_replaced_executable();
     let context = tauri::generate_context!();
     #[cfg(feature = "portable")]
     let context = {
@@ -131,6 +163,8 @@ pub fn run() {
             log::log_clear,
             log::log_export,
             // environment
+            updater::update_check,
+            updater::update_install,
             environment::environment_detect_all,
             environment::environment_detect_single,
             // MySQL / Redis Windows services

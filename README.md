@@ -108,7 +108,7 @@ src-tauri\target\release\bundle\nsis\
 
 应用图标以 `public/app-icon.svg` 为唯一源文件，开发和构建流程会自动生成 Tauri 所需的 Windows 图标集。
 
-推送符合 `v*` 规则的版本标签（例如 `v1.0.0`）后，`.github/workflows/release-windows.yml` 会核对标签与 `package.json`、`Cargo.toml`、`tauri.conf.json` 的版本号，再调用 `npm run build:portable` 和 `npx tauri build --bundles nsis`。便携包仍是 `Dev-Tools-<版本>-windows-x64-portable.zip`。NSIS 安装包沿用 Tauri 的 `Dev-Tools_<版本>_x64-setup.exe`。两者都写出同样格式的 SHA256 侧车：小写哈希、两个空格、文件名、CRLF。工作流确认两个包都能启动后，把它们上传到对应的 GitHub Release。
+推送符合 `v*` 规则的版本标签（例如 `v1.0.0`）后，`.github/workflows/release-windows.yml` 会核对标签与 `package.json`、`Cargo.toml`、`tauri.conf.json` 的版本号，再调用 `npm run build:portable` 和 `npx tauri build --bundles nsis`。便携包仍是 `Dev-Tools-<版本>-windows-x64-portable.zip`。NSIS 安装包沿用 Tauri 的 `Dev-Tools_<版本>_x64-setup.exe`。两者都写出同样格式的 SHA256 侧车：小写哈希、两个空格、文件名、CRLF。工作流再用 `TAURI_SIGNING_PRIVATE_KEY` 给这两个包做 minisign 签名，生成 `latest.json`，确认两个包都能启动后，把包、校验和、签名和更新清单上传到对应的 GitHub Release。应用在设置的关于里读取这份清单；没有网络时只提示无法连接，不改本地数据。
 
 ## 状态
 

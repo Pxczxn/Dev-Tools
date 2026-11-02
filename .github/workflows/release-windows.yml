@@ -74,12 +74,30 @@ jobs:
           $setup = Get-ChildItem src-tauri/target/release/bundle/nsis -Filter "*_$version`_x64-setup.exe" | Select-Object -First 1
           pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-packages.ps1 -PortableZip "dist/Dev-Tools-$version-windows-x64-portable.zip" -SetupExe $setup.FullName
 
+      - name: Sign the packages and write the update manifest
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) { throw 'TAURI_SIGNING_PRIVATE_KEY secret is required to sign update packages.' }
+          $version = (Get-Content package.json -Raw -Encoding utf8 | ConvertFrom-Json).version
+          $portable = Get-Item "dist/Dev-Tools-$version-windows-x64-portable.zip"
+          $setup = Get-ChildItem src-tauri/target/release/bundle/nsis -Filter "*_$version`_x64-setup.exe" | Select-Object -First 1
+          cargo run --manifest-path src-tauri/Cargo.toml --example sign-update --release --target x86_64-pc-windows-msvc --locked --offline -- --file $portable.FullName
+          if ($LASTEXITCODE -ne 0) { throw 'Signing the portable archive failed.' }
+          cargo run --manifest-path src-tauri/Cargo.toml --example sign-update --release --target x86_64-pc-windows-msvc --locked --offline -- --file $setup.FullName
+          if ($LASTEXITCODE -ne 0) { throw 'Signing the NSIS installer failed.' }
+          pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/write-latest-json.ps1 -Version $version -PortableFileName $portable.Name -SetupFileName $setup.Name -PortableSignature (Get-Content "$($portable.FullName).sig" -Raw) -SetupSignature (Get-Content "$($setup.FullName).sig" -Raw) -Notes "Dev-Tools $version" -Output dist/latest.json
+
       - name: Publish the GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            dist/latest.json
             dist/Dev-Tools-*-windows-x64-portable.zip
             dist/Dev-Tools-*-windows-x64-portable.zip.sha256
+            dist/Dev-Tools-*-windows-x64-portable.zip.sig
             src-tauri/target/release/bundle/nsis/*-setup.exe
             src-tauri/target/release/bundle/nsis/*-setup.exe.sha256
+            src-tauri/target/release/bundle/nsis/*-setup.exe.sig
           generate_release_notes: true

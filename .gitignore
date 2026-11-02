@@ -32,6 +32,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # 本地环境与密钥
+dev-tools.key
 .env
 .env.*
 !.env.example

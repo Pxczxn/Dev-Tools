@@ -1,6 +1,6 @@
 [package]
 name = "xchendev-tools"
-version = "1.0.1"
+version = "1.0.2"
 description = "Dev-Tools Windows desktop companion"
 authors = ["XchenDev"]
 edition = "2021"
@@ -44,8 +44,12 @@ windows = { version = "0.61", features = [
     "Win32_System_Pipes",
     "Win32_System_Services",
 ] }
+minisign-verify = "0.2"
+ureq = { version = "2", default-features = false, features = ["tls", "native-certs"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
+minisign = "0.7"
 tempfile = "3"
 
 [profile.release]

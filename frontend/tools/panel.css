@@ -161,3 +161,8 @@ body.xd-logs-page .log-scroll {
 
 /* 总览原搜索由全局搜索替代。 */
 body.xd-home .header .search-bar { display: none; }
+
+.xd-update { display: grid; gap: 8px; margin-top: 14px; }
+.xd-update .btn { justify-self: start; }
+.xd-update-status { margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
+.xd-update-notes { margin: 0; max-height: 180px; overflow: auto; white-space: pre-wrap; color: var(--text-secondary); font: 12px/1.6 var(--font-mono, monospace); }
